@@ -2,6 +2,7 @@ import sqlite3 from 'sqlite3';
 import { identify, Result } from 'sql-query-identifier';
 
 import createLogger from '../logger';
+import { appendSemiColon } from '../utils';
 import { Adapter, ADAPTERS } from './';
 import { AbstractAdapter } from './abstract_adapter';
 
@@ -13,10 +14,11 @@ import type {
   QueryReturn,
   ListTableColumnsResult,
   ListTableResult,
-  ListViewResult
+  ListViewResult,
 } from './abstract_adapter';
 import type { Server } from '../server';
 import type { Database } from '../database';
+import { SchemaFilter } from '..';
 
 const logger = createLogger('db:clients:sqlite');
 
@@ -33,7 +35,7 @@ interface QueryResult {
 
 export default class SqliteAdapter extends AbstractAdapter {
   conn: {
-    dbConfig: {database: string;}
+    dbConfig: { database: string };
   };
 
   constructor(server: Server, database: Database) {
@@ -41,14 +43,14 @@ export default class SqliteAdapter extends AbstractAdapter {
 
     const dbConfig = this.configDatabase();
     logger().debug('create adapter for sqlite3 with config %j', dbConfig);
-    this.conn = {dbConfig};
+    this.conn = { dbConfig };
   }
 
-  configDatabase(): {database: string} {
+  configDatabase(): { database: string } {
     return {
-      database: this.database.database || <string>(<Adapter>ADAPTERS.find(
-        (adapter) => adapter.key === 'sqlite'
-      )).defaultDatabase,
+      database:
+        this.database.database ||
+        <string>(<Adapter>ADAPTERS.find((adapter) => adapter.key === 'sqlite')).defaultDatabase,
     };
   }
 
@@ -59,11 +61,13 @@ export default class SqliteAdapter extends AbstractAdapter {
   async connect(): Promise<void> {
     logger().debug('connecting');
 
-    const result = <QueryResult>(await this.driverExecuteQuery({ query: 'SELECT sqlite_version() as version' }));
+    const result = <QueryResult>(
+      await this.driverExecuteQuery({ query: 'SELECT sqlite_version() as version' })
+    );
     if (!result.data || result.data?.length === 0) {
       throw new Error('Failed to fetch version information');
     }
-    const version = (<{version: string}>result.data[0]).version;
+    const version = (<{ version: string }>result.data[0]).version;
     this.version = {
       name: 'SQLite',
       version,
@@ -86,8 +90,8 @@ export default class SqliteAdapter extends AbstractAdapter {
 
             return result;
           } catch (err) {
-            if ((err as {code: string}).code === sqliteErrors.CANCELED) {
-              (err as {sqlectronError: string}).sqlectronError = 'CANCELED_BY_USER';
+            if ((err as { code: string }).code === sqliteErrors.CANCELED) {
+              (err as { sqlectronError: string }).sqlectronError = 'CANCELED_BY_USER';
             }
 
             throw err;
@@ -113,7 +117,10 @@ export default class SqliteAdapter extends AbstractAdapter {
     });
   }
 
-  async listTables(filter: unknown, connection?: sqlite3.Database): Promise<ListTableResult[]> {
+  async listTables(
+    filter?: SchemaFilter,
+    connection?: sqlite3.Database,
+  ): Promise<ListTableResult[]> {
     const sql = `
       SELECT name
       FROM sqlite_master
@@ -143,7 +150,7 @@ export default class SqliteAdapter extends AbstractAdapter {
 
     const { data } = <QueryResult>await this.driverExecuteQuery({ query: sql });
 
-    return (<{name: string, type: string}[]>data).map((row) => ({
+    return (<{ name: string; type: string }[]>data).map((row) => ({
       columnName: row.name,
       dataType: row.type,
     }));
@@ -159,7 +166,7 @@ export default class SqliteAdapter extends AbstractAdapter {
 
     const { data } = <QueryResult>await this.driverExecuteQuery({ query: sql });
 
-    return (<{name: string}[]>data).map((row) => row.name);
+    return (<{ name: string }[]>data).map((row) => row.name);
   }
 
   async listTableIndexes(table: string): Promise<string[]> {
@@ -167,7 +174,7 @@ export default class SqliteAdapter extends AbstractAdapter {
 
     const { data } = <QueryResult>await this.driverExecuteQuery({ query: sql });
 
-    return (<{name: string}[]>data).map((row) => row.name);
+    return (<{ name: string }[]>data).map((row) => row.name);
   }
 
   async listDatabases(): Promise<string[]> {
@@ -175,7 +182,7 @@ export default class SqliteAdapter extends AbstractAdapter {
 
     const { data } = <QueryResult>await this.driverExecuteQuery({ query: sql });
 
-    return (<{file: string}[]>data).map((row) => row.file || ':memory:');
+    return (<{ file: string }[]>data).map((row) => row.file || ':memory:');
   }
 
   async getTableCreateScript(table: string): Promise<string[]> {
@@ -187,7 +194,7 @@ export default class SqliteAdapter extends AbstractAdapter {
 
     const { data } = <QueryResult>await this.driverExecuteQuery({ query: sql });
 
-    return (<{sql: string}[]>data).map((row) => row.sql);
+    return (<{ sql: string }[]>data).map((row) => appendSemiColon(row.sql));
   }
 
   async getViewCreateScript(view: string): Promise<string[]> {
@@ -199,16 +206,20 @@ export default class SqliteAdapter extends AbstractAdapter {
 
     const { data } = <QueryResult>await this.driverExecuteQuery({ query: sql });
 
-    return (<{sql: string}[]>data).map((row) => row.sql);
+    return (<{ sql: string }[]>data).map((row) => appendSemiColon(row.sql));
   }
 
   async truncateAllTables(): Promise<void> {
     await this.runWithConnection(async (connection) => {
-      const tables = await this.listTables(null, connection);
+      const tables = await this.listTables(undefined, connection);
 
-      const truncateAll = tables.map((table) => `
+      const truncateAll = tables
+        .map(
+          (table) => `
         DELETE FROM ${table.name};
-      `).join('');
+      `,
+        )
+        .join('');
 
       // TODO: Check if sqlite_sequence exists then execute:
       // DELETE FROM sqlite_sequence WHERE name='${table}';
@@ -217,26 +228,32 @@ export default class SqliteAdapter extends AbstractAdapter {
     });
   }
 
-  async driverExecuteQuery(queryArgs: QueryArgs, connection?: sqlite3.Database): Promise<QueryResult | QueryResult[]> {
+  async driverExecuteQuery(
+    queryArgs: QueryArgs,
+    connection?: sqlite3.Database,
+  ): Promise<QueryResult | QueryResult[]> {
     const runQuery = (
       connection: sqlite3.Database,
-      { executionType, text }: Result
-    ): Promise<{data?: unknown[], lastID: number, changes: number}> => new Promise((resolve, reject) => {
-      const method = resolveExecutionType(executionType);
-      connection[method](text, queryArgs.params, function (err: Error | null, data?: unknown[]) {
-        if (err) {
-          return reject(err);
-        }
+      { executionType, text }: Result,
+    ): Promise<{ data?: unknown[]; lastID: number; changes: number }> =>
+      new Promise((resolve, reject) => {
+        const method = resolveExecutionType(executionType);
+        connection[method](text, queryArgs.params, function (err: Error | null, data?: unknown[]) {
+          if (err) {
+            return reject(err);
+          }
 
-        return resolve({
-          data,
-          lastID: (this as RunResult).lastID, // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
-          changes: (this as RunResult).changes, // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
+          return resolve({
+            data,
+            lastID: (this as RunResult).lastID, // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
+            changes: (this as RunResult).changes, // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
+          });
         });
       });
-    });
 
-    const identifyStatementsRunQuery = async (connection: sqlite3.Database): Promise<QueryResult | QueryResult[]> => {
+    const identifyStatementsRunQuery = async (
+      connection: sqlite3.Database,
+    ): Promise<QueryResult | QueryResult[]> => {
       const statements = identifyCommands(queryArgs.query);
 
       const results = await Promise.all(
@@ -267,13 +284,16 @@ export default class SqliteAdapter extends AbstractAdapter {
         }
 
         db.serialize();
-        run(db).then((results) => {
-          resolve(results);
-        }).catch((runErr) => {
-          reject(runErr);
-        }).finally(() => {
-          db.close();
-        });
+        run(db)
+          .then((results) => {
+            resolve(results);
+          })
+          .catch((runErr) => {
+            reject(runErr);
+          })
+          .finally(() => {
+            db.close();
+          });
       });
     });
   }
@@ -290,11 +310,14 @@ export function wrapIdentifier(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
-
-function parseRowQueryResult({ data, statement, changes }: {
-  data?: any[], // eslint-disable-line @typescript-eslint/no-explicit-any
-  statement: Result,
-  changes: number,
+function parseRowQueryResult({
+  data,
+  statement,
+  changes,
+}: {
+  data?: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+  statement: Result;
+  changes: number;
 }): QueryRowResult {
   // Fallback in case the identifier could not reconize the command
   const isSelect = Array.isArray(data);
@@ -303,12 +326,12 @@ function parseRowQueryResult({ data, statement, changes }: {
   return {
     command: statement.type || (isSelect && 'SELECT'),
     rows,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     fields: Object.keys(rows[0] || {}).map((name) => ({ name })),
     rowCount: data && data.length,
     affectedRows: changes || 0,
   };
 }
-
 
 function identifyCommands(queryText: string) {
   try {
@@ -320,7 +343,9 @@ function identifyCommands(queryText: string) {
 
 function resolveExecutionType(executioType: string) {
   switch (executioType) {
-    case 'MODIFICATION': return 'run';
-    default: return 'all';
+    case 'MODIFICATION':
+      return 'run';
+    default:
+      return 'all';
   }
 }

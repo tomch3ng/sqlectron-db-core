@@ -15,7 +15,7 @@ import type {
   ListRoutineResult,
   ListTableColumnsResult,
   TableKeysResult,
- } from './abstract_adapter';
+} from './abstract_adapter';
 import type { Database } from '../database';
 import type { DatabaseFilter } from '../filters';
 import type { Server } from '../server';
@@ -27,7 +27,7 @@ const mysqlErrors = {
   CONNECTION_LOST: 'PROTOCOL_CONNECTION_LOST',
 };
 
-declare module "mysql2" {
+declare module 'mysql2' {
   interface PoolConnection {
     _fatalError: Error | null;
     _protocolError: Error | null;
@@ -51,7 +51,7 @@ interface Config {
   bigNumberStrings: true;
   ssl?: {
     rejectUnauthorized: false;
-  }
+  };
 }
 
 export default class MysqlAdapter extends AbstractAdapter {
@@ -103,9 +103,11 @@ export default class MysqlAdapter extends AbstractAdapter {
   async connect(): Promise<void> {
     logger().debug('connecting');
 
-    const versionInfo = <mysql.RowDataPacket[]>(await this.driverExecuteQuery({
-      query: "SHOW VARIABLES WHERE variable_name='version' OR variable_name='version_comment';",
-    })).data;
+    const versionInfo = <mysql.RowDataPacket[]>(
+      await this.driverExecuteQuery({
+        query: "SHOW VARIABLES WHERE variable_name='version' OR variable_name='version_comment';",
+      })
+    ).data;
 
     let version = '';
     let versionComment = '';
@@ -158,9 +160,12 @@ export default class MysqlAdapter extends AbstractAdapter {
     return {
       execute: () => {
         return this.runWithConnection(async (connection) => {
-          const pidResult = await this.driverExecuteQuery({
-            query: 'SELECT connection_id() AS pid',
-          }, connection);
+          const pidResult = await this.driverExecuteQuery(
+            {
+              query: 'SELECT connection_id() AS pid',
+            },
+            connection,
+          );
 
           pid = (<mysql.RowDataPacket[]>pidResult.data)[0].pid as number;
 
@@ -174,9 +179,9 @@ export default class MysqlAdapter extends AbstractAdapter {
 
             return <QueryRowResult[]>data;
           } catch (err) {
-            if (canceling && (err as {code: string}).code === mysqlErrors.CONNECTION_LOST) {
+            if (canceling && (err as { code: string }).code === mysqlErrors.CONNECTION_LOST) {
               canceling = false;
-              (err as {sqlectronError: string}).sqlectronError = 'CANCELED_BY_USER';
+              (err as { sqlectronError: string }).sqlectronError = 'CANCELED_BY_USER';
             }
 
             throw err;
@@ -211,27 +216,24 @@ export default class MysqlAdapter extends AbstractAdapter {
       rowMode: 'array',
     }, connection);
 
-    if (
-      !data
-      || (
-        Array.isArray(data) && data.length === 0)
-        && fields.length === 0
-      ) {
+    if (!data || (Array.isArray(data) && data.length === 0 && fields.length === 0)) {
       return [];
     }
 
     const commands = identifyCommands(queryText).map((item) => item.type);
 
     if (!isMultipleQuery(fields)) {
-      return [parseRowQueryResult(<mysql.RowDataPacket[]>data, <mysql.FieldPacket[]>fields, commands[0])];
+      return [
+        parseRowQueryResult(<mysql.RowDataPacket[]>data, <mysql.FieldPacket[]>fields, commands[0]),
+      ];
     }
 
     return (<mysql.RowDataPacket[][]>data).map((row, idx) => {
       return parseRowQueryResult(
         row,
         (<mysql.FieldPacket[][]>fields)[idx],
-        commands[idx]
-      )
+        commands[idx],
+      );
     });
   }
 
@@ -287,9 +289,7 @@ export default class MysqlAdapter extends AbstractAdapter {
       ORDER BY ordinal_position
     `;
 
-    const params = [
-      table,
-    ];
+    const params = [table];
 
     const { data } = await this.driverExecuteQuery({ query: sql, params });
 
@@ -307,9 +307,7 @@ export default class MysqlAdapter extends AbstractAdapter {
       AND event_object_table = ?
     `;
 
-    const params = [
-      table,
-    ];
+    const params = [table];
 
     const { data } = await this.driverExecuteQuery({ query: sql, params });
 
@@ -319,10 +317,7 @@ export default class MysqlAdapter extends AbstractAdapter {
   async listTableIndexes(table: string): Promise<string[]> {
     const sql = 'SHOW INDEX FROM ?? FROM ??';
 
-    const params = [
-      table,
-      this.database.database,
-    ];
+    const params = [table, this.database.database];
 
     const { data } = await this.driverExecuteQuery({ query: sql, params });
 
@@ -348,9 +343,7 @@ export default class MysqlAdapter extends AbstractAdapter {
       AND table_name = ?
     `;
 
-    const params = [
-      table,
-    ];
+    const params = [table];
 
     const { data } = await this.driverExecuteQuery({ query: sql, params });
 
@@ -372,9 +365,7 @@ export default class MysqlAdapter extends AbstractAdapter {
       AND ((referenced_table_name IS NOT NULL) OR constraint_name LIKE '%PRIMARY%')
     `;
 
-    const params = [
-      table,
-    ];
+    const params = [table];
 
     const { data } = await this.driverExecuteQuery({ query: sql, params });
 
@@ -391,7 +382,9 @@ export default class MysqlAdapter extends AbstractAdapter {
 
     const { data } = await this.driverExecuteQuery({ query: sql });
 
-    return (<mysql.RowDataPacket[]>data).map((row) => row['Create Table'] as string);
+    return (<mysql.RowDataPacket[]>data).map((row) =>
+      appendSemiColon(row['Create Table'] as string),
+    );
   }
 
   async getViewCreateScript(view: string): Promise<string[]> {
@@ -399,7 +392,9 @@ export default class MysqlAdapter extends AbstractAdapter {
 
     const { data } = await this.driverExecuteQuery({ query: sql });
 
-    return (<mysql.RowDataPacket[]>data).map((row) => row['Create View'] as string);
+    return (<mysql.RowDataPacket[]>data).map((row) =>
+      appendSemiColon(row['Create View'] as string),
+    );
   }
 
   async getRoutineCreateScript(routine: string, type: string): Promise<string[]> {
@@ -407,11 +402,13 @@ export default class MysqlAdapter extends AbstractAdapter {
 
     const { data } = await this.driverExecuteQuery({ query: sql });
 
-    return (<mysql.RowDataPacket[]>data).map((row) => row[`Create ${type}`] as string);
+    return (<mysql.RowDataPacket[]>data).map((row) =>
+      appendSemiColon(row[`Create ${type}`] as string),
+    );
   }
 
   async getSchema(connection?: mysql.PoolConnection): Promise<string> {
-    const sql = 'SELECT database() AS \'schema\'';
+    const sql = "SELECT database() AS 'schema'";
 
     const result = await this.driverExecuteQuery({ query: sql }, connection);
 
@@ -432,17 +429,26 @@ export default class MysqlAdapter extends AbstractAdapter {
       const result = await this.driverExecuteQuery({ query: sql }, connection);
       const data = <mysql.RowDataPacket[]>result.data;
 
-      const truncateAll = data.map((row) => `
+      const truncateAll = data
+        .map(
+          (row) => `
         SET FOREIGN_KEY_CHECKS = 0;
-        TRUNCATE TABLE ${this.wrapIdentifier(schema)}.${this.wrapIdentifier(row.table_name)};
+        TRUNCATE TABLE ${this.wrapIdentifier(schema)}.${this.wrapIdentifier(
+            row.table_name as string,
+          )};
         SET FOREIGN_KEY_CHECKS = 1;
-      `).join('');
+      `,
+        )
+        .join('');
 
       return this.driverExecuteQuery({ query: truncateAll }, connection);
     });
   }
 
-  async driverExecuteQuery(queryArgs: QueryArgs, connection?: mysql.PoolConnection): Promise<QueryResult> {
+  async driverExecuteQuery(
+    queryArgs: QueryArgs,
+    connection?: mysql.PoolConnection,
+  ): Promise<QueryResult> {
     const runQuery = (connection: mysql.PoolConnection): Promise<QueryResult> => {
       return new Promise((resolve, reject) => {
         connection.query({
@@ -451,7 +457,7 @@ export default class MysqlAdapter extends AbstractAdapter {
           rowsAsArray: queryArgs.rowMode === 'array'
         }, (err, data, fields) => {
           if (err && err.code === mysqlErrors.EMPTY_QUERY) {
-            return resolve({data: [], fields: []});
+            return resolve({ data: [], fields: [] });
           }
           if (err) {
             return reject(getRealError(connection, err));
@@ -465,13 +471,11 @@ export default class MysqlAdapter extends AbstractAdapter {
       });
     };
 
-    return connection
-      ? runQuery(connection)
-      : this.runWithConnection(runQuery);
+    return connection ? runQuery(connection) : this.runWithConnection(runQuery);
   }
 
   runWithConnection<T = QueryResult>(
-    run: (connection: mysql.PoolConnection) => Promise<T>
+    run: (connection: mysql.PoolConnection) => Promise<T>,
   ): Promise<T> {
     let rejected = false;
     return new Promise((resolve, reject) => {
@@ -496,7 +500,7 @@ export default class MysqlAdapter extends AbstractAdapter {
         try {
           resolve(await run(connection));
         } catch (err) {
-          rejectErr(err);
+          rejectErr(err as Error);
         } finally {
           connection.release();
         }
@@ -513,7 +517,6 @@ export function wrapIdentifier(value: string): string {
   return value !== '*' ? `\`${value.replace(/`/g, '``')}\`` : '*';
 }
 
-
 function identifyCommands(queryText: string): Result[] {
   try {
     return identify(queryText, { strict: false });
@@ -525,11 +528,10 @@ function identifyCommands(queryText: string): Result[] {
 function getRealError(conn: mysql.PoolConnection, err: mysql.QueryError) {
   /* eslint no-underscore-dangle:0 */
   if (conn && (conn._fatalError || conn._protocolError)) {
-    return (conn._fatalError || conn._protocolError);
+    return conn._fatalError || conn._protocolError;
   }
   return err;
 }
-
 
 function parseRowQueryResult(
   data: mysql.RowDataPacket[] | mysql.ResultSetHeader,
@@ -538,8 +540,8 @@ function parseRowQueryResult(
 ): QueryArrayRowResult {
   // Fallback in case the identifier could not reconize the command
   const isSelect = Array.isArray(data);
-  const dataArray = isSelect ? <mysql.RowDataPacket[]>data || [] : [];
-  const dataHeader = !isSelect ? <mysql.ResultSetHeader>data : { affectedRows: undefined };
+  const dataArray = isSelect ? data || [] : [];
+  const dataHeader = !isSelect ? data : { affectedRows: undefined };
   return {
     command: command || (isSelect ? 'SELECT' : 'UNKNOWN'),
     rows: dataArray,
@@ -549,19 +551,24 @@ function parseRowQueryResult(
   };
 }
 
-
 function isMultipleQuery(fields: mysql.FieldPacket[] | mysql.FieldPacket[][]) {
-  if (!fields) { return false; }
-  if (!fields.length) { return false; }
-  return (Array.isArray(fields[0]) || fields[0] === undefined);
+  if (!fields) {
+    return false;
+  }
+  if (!fields.length) {
+    return false;
+  }
+  return Array.isArray(fields[0]) || fields[0] === undefined;
 }
 
 function filterDatabase(
   item: mysql.RowDataPacket,
   { database }: DatabaseFilter = {},
-  databaseField: string
+  databaseField: string,
 ) {
-  if (!database) { return true; }
+  if (!database) {
+    return true;
+  }
 
   const value = item[databaseField] as string;
   if (typeof database === 'string') {

@@ -22,12 +22,15 @@ export interface LegacyServerConfig {
     privateKey?: string;
     host: string;
     port: number;
+    useAgent?: boolean;
   };
-  ssl?: {
-    key?: string;
-    ca?: string;
-    cert?: string;
-  } | false;
+  ssl?:
+    | {
+        key?: string;
+        ca?: string;
+        cert?: string;
+      }
+    | false;
 }
 
 export interface ServerConfig extends LegacyServerConfig {
@@ -35,7 +38,7 @@ export interface ServerConfig extends LegacyServerConfig {
 }
 
 export class Server {
-  databases: {[key: string]: Database} = {};
+  databases: { [key: string]: Database } = {};
   config: ServerConfig;
   sshTunnel: null | NetServer = null;
 
@@ -43,7 +46,7 @@ export class Server {
     this.config = {
       ...serverConfig,
       host: serverConfig.host || serverConfig.socketPath,
-    }
+    };
   }
 
   db(dbName: string): Database {
