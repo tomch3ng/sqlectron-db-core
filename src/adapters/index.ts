@@ -10,7 +10,8 @@ import type { Server } from '../server';
 export interface Adapter {
   key: string;
   name: string;
-  adapter: typeof AbstractAdapter,
+  protocol: string;
+  adapter: typeof AbstractAdapter;
   defaultPort?: number;
   defaultDatabase?: string;
   disabledFeatures: string[];
@@ -22,46 +23,41 @@ export interface Adapter {
 export const ADAPTERS: Adapter[] = [
   {
     key: 'mysql',
+    protocol: 'mysql',
     name: 'MySQL',
     adapter: MysqlAdapter,
     defaultPort: 3306,
-    disabledFeatures: [
-      'server:schema',
-      'server:domain',
-    ],
+    disabledFeatures: ['server:schema', 'server:domain'],
   },
   {
     key: 'mariadb',
+    protocol: 'mariadb',
     name: 'MariaDB',
     adapter: MysqlAdapter,
     defaultPort: 3306,
-    disabledFeatures: [
-      'server:schema',
-      'server:domain',
-    ],
+    disabledFeatures: ['server:schema', 'server:domain'],
   },
   {
     key: 'postgresql',
+    protocol: 'postgres',
     name: 'PostgreSQL',
     adapter: PostgresqlAdapter,
     defaultDatabase: 'postgres',
     defaultPort: 5432,
-    disabledFeatures: [
-      'server:domain',
-    ],
+    disabledFeatures: ['server:domain'],
   },
   {
     key: 'redshift',
+    protocol: 'redshift',
     name: 'Redshift',
     adapter: PostgresqlAdapter,
     defaultDatabase: 'postgres',
     defaultPort: 5432,
-    disabledFeatures: [
-      'server:domain',
-    ],
+    disabledFeatures: ['server:domain'],
   },
   {
     key: 'sqlserver',
+    protocol: 'mssql',
     name: 'Microsoft SQL Server',
     adapter: SqlServerAdapter,
     defaultPort: 1433,
@@ -69,6 +65,7 @@ export const ADAPTERS: Adapter[] = [
   },
   {
     key: 'sqlite',
+    protocol: 'file',
     name: 'SQLite',
     adapter: SqliteAdapter,
     defaultDatabase: ':memory:',
@@ -87,6 +84,7 @@ export const ADAPTERS: Adapter[] = [
   },
   {
     key: 'cassandra',
+    protocol: 'cassandra',
     name: 'Cassandra',
     adapter: CassandraAdapter,
     defaultPort: 9042,
@@ -111,13 +109,14 @@ export function registerAdapter(adapter: Adapter): void {
 export function adapterFactory(
   adapterKey: string,
   server: Server,
-  database: Database
+  database: Database,
 ): AbstractAdapter {
   const adapter = ADAPTERS.find((a) => a.key === adapterKey);
   if (!adapter) {
     throw new Error(`Unknown requested adapter: ${adapterKey}`);
   }
-  return new (
-    adapter.adapter as {new(server: Server, database: Database): AbstractAdapter}
-  )(server, database);
+  return new (adapter.adapter as { new (server: Server, database: Database): AbstractAdapter })(
+    server,
+    database,
+  );
 }

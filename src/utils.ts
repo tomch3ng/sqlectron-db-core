@@ -1,7 +1,6 @@
 import fs from 'fs';
 import { homedir } from 'os';
 import path from 'path';
-import pf from 'portfinder';
 import { identify } from 'sql-query-identifier';
 
 import { CanceledByUserError } from './errors';
@@ -26,19 +25,12 @@ export function resolveHomePathToAbsolute(filename: string): string {
   return path.join(homedir(), filename.substring(2));
 }
 
-export function getPort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    pf.getPort({ host: 'localhost' }, (err, port) => {
-      if (err) return reject(err);
-      resolve(port);
-    });
-  });
-}
-
-export function createCancelablePromise(timeIdle = 100): {
-  wait: () => Promise<void>,
-  cancel: () => void,
-  discard: () => void
+export function createCancelablePromise(
+  timeIdle = 100,
+): {
+  wait: () => Promise<void>;
+  cancel: () => void;
+  discard: () => void;
 } {
   let canceled = false;
   let discarded = false;
@@ -93,4 +85,12 @@ export function identifyCommands(queryText: string): Result[] {
   } catch (err) {
     return [];
   }
+}
+
+export function appendSemiColon(query: string): string {
+  let result = query.trim();
+  if (result[result.length - 1] !== ';') {
+    result += ';';
+  }
+  return result;
 }

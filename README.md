@@ -1,11 +1,12 @@
 # sqlectron-db-core
 
-[![Build Status](https://github.com/sqlectron/sqlectron-db-core/workflows/Test/badge.svg?branch=master)](https://github.com/sqlectron/sqlectron-db-core/actions?query=workflow%3ATest+branch%3Amaster)
+[![Build Status](https://github.com/sqlectron/sqlectron-db-core/workflows/Test/badge.svg?branch=master)](https://github.com/sqlectron/sqlectron-db-core/actions?query=workflow%3ATest+branch%3Amain)
 [![npm](https://img.shields.io/npm/v/sqlectron-db-core)](https://www.npmjs.com/package/sqlectron-db-core)
 
 The common code used by all sqlectron clients.
 
-> Requires node 10 or higher.
+> Requires node v10 or higher.
+> For ed25519 ssh support it requires node v12.
 
 ## How to pronounce
 
@@ -13,13 +14,13 @@ It is pronounced "sequelectron" - https://translate.google.com/?source=osdd#en/e
 
 ## Current supported databases
 
-* [PostgreSQL](http://www.postgresql.org/)
-* [Redshift](https://aws.amazon.com/redshift/)
-* [MySQL](https://www.mysql.com/)
-* [MariaDB](https://mariadb.org/)
-* [Microsoft SQL Server](http://www.microsoft.com/en-us/server-cloud/products/sql-server/)
-* [Cassandra](http://cassandra.apache.org/) (NoSQL; [Exceptions about this client](https://github.com/sqlectron/sqlectron-core/releases/tag/v6.3.0))
-* [SQLite](https://sqlite.org/)
+- [PostgreSQL](http://www.postgresql.org/)
+- [Redshift](https://aws.amazon.com/redshift/)
+- [MySQL](https://www.mysql.com/)
+- [MariaDB](https://mariadb.org/)
+- [Microsoft SQL Server](http://www.microsoft.com/en-us/server-cloud/products/sql-server/)
+- [Cassandra](http://cassandra.apache.org/) (NoSQL; [Exceptions about this client](https://github.com/sqlectron/sqlectron-core/releases/tag/v6.3.0))
+- [SQLite](https://sqlite.org/)
 
 Do you want to support another SQL database? Please follow [these steps](/CONTRIBUTING.md#adding-a-new-client).
 
@@ -34,30 +35,31 @@ npm install sqlectron-db-core
 ## Example Usage
 
 ```javascript
-serverSession = db.createServer(serverInfo);
-dbConn = serverSession.createConnection(serverInfo.database);
+const serverSession = db.createServer(serverInfo);
+const dbConn = serverSession.createConnection(serverInfo.database);
 dbConn.connect().then(() => {
   console.log(dbConn.executeQuery('SELECT 1'));
-})
+});
 ```
 
 Where serverInfo is an array with the following fields:
 
-* `id`: in case including a new server manually there is no need setting an id field because SQLECTRON will do it for you
-* `name`
-* `client`: `postgresql`, `mysql` or `sqlserver`
-* `host`
-* `port`
-* `user`
-* `password`
-* `database`
-* `ssh`
-  * `host`
-  * `user`
-  * `port`
-  * `privateKey`
-  * `privateKeyWithPassphrase`
-* `ssl`
+- `id`: in case including a new server manually there is no need setting an id field because SQLECTRON will do it for you
+- `name`
+- `client`: `postgresql`, `mysql` or `sqlserver`
+- `host`
+- `port`
+- `user`
+- `password`
+- `database`
+- `ssh`
+  - `host`
+  - `user`
+  - `port`
+  - `privateKey`
+  - `passphrase`
+  - `useAgent`
+- `ssl`
 
 ## Contributing
 
