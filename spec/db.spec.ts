@@ -971,13 +971,13 @@ describe('db', () => {
               // that means doing a large select on the same table multiple times.
               // For redshift, we just run a ton of queries.
               if (dbAdapter === 'sqlite') {
-                const fromTables = [];
+                const fromTables: string[] = [];
                 for (let i = 0; i < 50; i++) {
                   fromTables.push('sqlite_master');
                 }
                 sleepCommands.sqlite = `SELECT last.name FROM ${fromTables.join(',')} as last`;
               } else if (dbAdapter === 'redshift') {
-                const queries = [];
+                const queries: string[] = [];
                 for (let i = 0; i < 50000; i++) {
                   queries.push(`
                     SELECT col.*, tab.*
@@ -1135,7 +1135,7 @@ describe('db', () => {
               expect(result).to.have.nested.property('rows');
               const rows = result.rows;
               expect(rows).to.have.lengthOf(1);
-              const row = (rows as unknown[][])[0];
+              const row = ((rows as unknown) as unknown[][])[0];
               expect(row).to.have.lengthOf(6);
               expect(row[0]).to.eql(1);
               expect(row[1]).to.eql('maxcnunes');
@@ -1156,7 +1156,9 @@ describe('db', () => {
                 const [result] = results;
 
                 expect(result).to.have.nested.property('fields[0].name').to.eql('createdat');
-                expect(result).to.have.nested.property('rows[0][0]').to.match(/^2016-10-25/);
+                expect(result)
+                  .to.have.nested.property('rows[0][0]')
+                  .to.match(/^2016-10-25/);
               });
             }
 
@@ -1196,7 +1198,9 @@ describe('db', () => {
 
                 expect(firstResult).to.have.nested.property('rows[0][0]').to.eql(1);
                 expect(firstResult).to.have.nested.property('rows[0][1]').to.eql('maxcnunes');
-                expect(firstResult).to.have.nested.property('rows[0][2]').to.eql('maxcnunes@gmail.com');
+                expect(firstResult)
+                  .to.have.nested.property('rows[0][2]')
+                  .to.eql('maxcnunes@gmail.com');
                 expect(firstResult).to.have.nested.property('rows[0][3]').to.eql('123456');
 
                 expect(firstResult).to.have.property('command').to.eql('SELECT');

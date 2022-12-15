@@ -5,7 +5,11 @@ import createLogger from './logger';
 import type { AddressInfo } from 'net';
 import type { DatabaseFilter, SchemaFilter } from './filters';
 import type { Server } from './server';
-import type { AbstractAdapter, AdapterVersion, QueryRowResult } from './adapters/abstract_adapter';
+import type {
+  AbstractAdapter,
+  AdapterVersion,
+  QueryArrayRowResult,
+} from './adapters/abstract_adapter';
 
 const logger = createLogger('db');
 
@@ -180,14 +184,14 @@ export class Database {
   query(
     queryText: string,
   ): {
-    execute: () => Promise<QueryRowResult[]>;
+    execute: () => Promise<QueryArrayRowResult[]>;
     cancel: () => void;
   } {
     this.checkIsConnected();
     return (<AbstractAdapter>this.connection).query(queryText);
   }
 
-  executeQuery(queryText: string): Promise<QueryRowResult[]> {
+  executeQuery(queryText: string): Promise<QueryArrayRowResult[]> {
     this.checkIsConnected();
     return (<AbstractAdapter>this.connection).executeQuery(queryText);
   }

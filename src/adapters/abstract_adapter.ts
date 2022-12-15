@@ -17,7 +17,7 @@ export interface QueryArgs {
 
 export interface QueryRowResult {
   command: string;
-  rows: {[key: string]: unknown}[];
+  rows: { [key: string]: unknown }[];
   fields: unknown;
   rowCount?: number;
   affectedRows?: number;
@@ -55,7 +55,7 @@ export interface TableKeysResult {
   referencedTable: string | null;
 }
 
-export type QueryReturn = { execute: () => Promise<QueryRowResult[]>; cancel: () => void };
+export type QueryReturn = { execute: () => Promise<QueryArrayRowResult[]>; cancel: () => void };
 
 export abstract class AbstractAdapter {
   readonly server;
